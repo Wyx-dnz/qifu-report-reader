@@ -53,6 +53,9 @@
   }
 
   function renderHtml(html) {
+    // 报告内锚点链接会改写 location.hash，导致 ?u= 丢失；拦掉默认跳转，改为原地滚动。
+    var guard = '<script>document.addEventListener("click",function(e){var a=e.target&&e.target.closest?e.target.closest(\'a[href^="#"]\'):null;if(!a)return;var id=a.getAttribute("href").slice(1);var el=id&&document.getElementById(id);if(el){e.preventDefault();el.scrollIntoView({behavior:"smooth",block:"start"});}},true);<\/script>';
+    html = html.replace(/<\/body>/i, guard + '</body>');
     document.open();
     document.write(html);
     document.close();
