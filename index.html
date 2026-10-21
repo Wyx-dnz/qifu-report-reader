@@ -39,6 +39,7 @@
   var hash = new URLSearchParams((location.hash || '').replace(/^#/, ''));
   var query = new URLSearchParams(location.search || '');
   var token = hash.get('t') || query.get('t') || '';
+  var source = hash.get('u') || query.get('u') || '';
 
   function errorCard(title, desc) {
     app.innerHTML = '<div class="card">' +
@@ -49,6 +50,34 @@
       '</div>';
     app.querySelector('h1').textContent = title;
     app.querySelector('p').textContent = desc;
+  }
+
+  function renderHtml(html) {
+    document.open();
+    document.write(html);
+    document.close();
+  }
+
+  // 新链路：报告 HTML 存在阿里云 OSS，阅读器直接拉取后渲染；手机不依赖 Supabase。
+  if (source) {
+    var sourceUrl;
+    try { sourceUrl = new URL(source); } catch (e) { sourceUrl = null; }
+    var hostOk = sourceUrl && /^xcampus-spaceworker\.oss-cn-[a-z0-9-]+\.aliyuncs\.com$/.test(sourceUrl.hostname);
+    var pathOk = sourceUrl && sourceUrl.pathname.indexOf('/skill-files/xcampus-customer-profile-360-query/reports/') === 0;
+    if (!sourceUrl || sourceUrl.protocol !== 'https:' || !hostOk || !pathOk) {
+      errorCard('链接无效', '报告地址校验失败，请回企服小蜜重新生成。');
+      return;
+    }
+    fetch(sourceUrl.href, { cache: 'no-store' })
+      .then(function (res) {
+        if (!res.ok) throw new Error('http_' + res.status);
+        return res.text();
+      })
+      .then(renderHtml)
+      .catch(function () {
+        errorCard('加载失败', '请检查网络后重试，或回企服小蜜重新生成。');
+      });
+    return;
   }
 
   if (!/^[A-Za-z0-9_-]{24,64}$/.test(token)) {
@@ -71,9 +100,7 @@
         return;
       }
       window.__QIFU_DOWNLOAD_URL__ = SUPABASE + '/functions/v1/qifu-report?t=' + encodeURIComponent(token) + '&download=1';
-      document.open();
-      document.write(json.html);
-      document.close();
+      renderHtml(json.html);
     })
     .catch(function () {
       errorCard('加载失败', '请检查网络后重试，或回企服小蜜重新生成。');
